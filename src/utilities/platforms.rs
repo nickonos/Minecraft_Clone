@@ -19,7 +19,6 @@ use cocoa::base::id as cocoa_id;
 use metal::CoreAnimationLayer;
 #[cfg(target_os = "macos")]
 use objc::runtime::YES;
-use ash::vk::HWND;
 
 // required extension ------------------------------------------------------
 #[cfg(target_os = "macos")]
