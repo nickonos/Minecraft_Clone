@@ -19,6 +19,8 @@ const WINDOW_WIDTH: u32 = 800;
 pub struct VulkanApp{
     _entry: ash::Entry,
     instance: ash::Instance,
+    surface_loader: ash::extensions::khr::Surface,
+    surface: vk::SurfaceKHR,
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_messenger: vk::DebugUtilsMessengerEXT,
     _physical_device: vk::PhysicalDevice,
@@ -28,7 +30,7 @@ pub struct VulkanApp{
 
 impl VulkanApp{
 
-    pub fn new() -> VulkanApp{
+    pub fn new(window: &winit::window::Window) -> VulkanApp{
         //create instance
         let entry = ash::Entry::new().unwrap();
         let instance = VulkanApp::create_instance(&entry);
@@ -37,12 +39,13 @@ impl VulkanApp{
         let (debug_utils_loader, debug_messenger) = utilities::debug::setup_debug_utils(true, &entry, &instance);
 
         //create surface
+        let (surface, surface_loader) = VulkanApp::create_surface(&entry, &instance, &window);
 
         //pick physical device
-        let physical_device = VulkanApp::pick_physical_device(&instance);
+        let physical_device = VulkanApp::pick_physical_device(&instance, &surface_loader, &surface);
 
         //create logical device
-        let (logical_device, graphics_queue) = VulkanApp::create_logical_device(&instance, physical_device, &VALIDATION);
+        let (logical_device, graphics_queue) = VulkanApp::create_logical_device(&instance, physical_device, &VALIDATION, &surface_loader, &surface);
 
         //create swap chain
 
@@ -54,6 +57,8 @@ impl VulkanApp{
         VulkanApp{
             _entry: entry,
             instance,
+            surface_loader,
+            surface,
             debug_utils_loader,
             debug_messenger,
             _physical_device: physical_device,
@@ -62,16 +67,12 @@ impl VulkanApp{
         }
     }
 
-    pub fn run(&self){
-        let event_loop = EventLoop::new();
-        let window = VulkanApp::init_window(&event_loop);
-
-        let vulkan_app = VulkanApp::new();
-        vulkan_app.main_loop(event_loop, window);
+    pub fn run(self, event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window){
+        self.main_loop(event_loop, window);
     }
 
 
-    fn init_window(event_loop: &EventLoop<()>) -> winit::window::Window{
+    pub fn init_window(event_loop: &EventLoop<()>) -> winit::window::Window{
         winit::window::WindowBuilder::new()
             .with_title(WINDOW_TITLE)
             .with_inner_size(winit::dpi::LogicalSize::new(WINDOW_WIDTH, WINDOW_HEIGHT))
@@ -145,9 +146,11 @@ impl VulkanApp{
     fn create_logical_device(
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
-        validation: &ValidationInfo
+        validation: &ValidationInfo,
+        surface_loader: &ash::extensions::khr::Surface,
+        surface: &vk::SurfaceKHR
     ) -> (ash::Device, vk::Queue) {
-        let indices = VulkanApp::find_queue_family(instance, physical_device);
+        let indices = VulkanApp::find_queue_family(instance, physical_device, surface_loader, surface);
 
         let queue_priorities = [1.0_f32];
         let queue_create_info = vk::DeviceQueueCreateInfo {
@@ -205,11 +208,22 @@ impl VulkanApp{
         (device, graphics_queue)
     }
 
-    fn create_surface(){
+    fn create_surface(
+        entry: &ash::Entry,
+        instance: &ash::Instance,
+        window: &winit::window::Window
+    ) -> (vk::SurfaceKHR, ash::extensions::khr::Surface,) {
+        let surface = unsafe {
+            utilities::platforms::create_surface(entry, instance, window)
+                .expect("Failed to create surface")
+        };
 
+        let surface_loader = ash::extensions::khr::Surface::new(entry, instance);
+
+        (surface, surface_loader)
     }
 
-    fn pick_physical_device(instance: &ash::Instance) -> vk::PhysicalDevice{
+    fn pick_physical_device(instance: &ash::Instance, surface_loader: &ash::extensions::khr::Surface, surface: &vk::SurfaceKHR) -> vk::PhysicalDevice{
         let physical_devices = unsafe {
             instance
                 .enumerate_physical_devices()
@@ -224,7 +238,7 @@ impl VulkanApp{
         let mut result = None;
 
         for &physical_device in physical_devices.iter() {
-            if VulkanApp::is_physical_device_suitable(instance, physical_device) {
+            if VulkanApp::is_physical_device_suitable(instance, physical_device, surface_loader, surface) {
                 if result.is_none() {
                     result = Some(physical_device)
                 }
@@ -240,6 +254,8 @@ impl VulkanApp{
     fn is_physical_device_suitable(
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
+        surface_loader: &ash::extensions::khr::Surface,
+        surface: &vk::SurfaceKHR
     ) -> bool {
         let device_properties = unsafe { instance.get_physical_device_properties(physical_device) };
         let device_features = unsafe { instance.get_physical_device_features(physical_device) };
@@ -318,7 +334,7 @@ impl VulkanApp{
             }
         );
 
-        let indices = VulkanApp::find_queue_family(instance, physical_device);
+        let indices = VulkanApp::find_queue_family(instance, physical_device, surface_loader, surface);
 
         return indices.is_complete();
     }
@@ -327,13 +343,13 @@ impl VulkanApp{
     fn find_queue_family(
         instance: &ash::Instance,
         physical_device: vk::PhysicalDevice,
+        surface_loader: &ash::extensions::khr::Surface,
+        surface: &vk::SurfaceKHR
     ) -> QueueFamilyIndices {
         let queue_families =
             unsafe { instance.get_physical_device_queue_family_properties(physical_device) };
 
-        let mut queue_family_indices = QueueFamilyIndices {
-            graphics_family: None,
-        };
+        let mut queue_family_indices = QueueFamilyIndices::new();
 
         let mut index = 0;
         for queue_family in queue_families.iter() {
@@ -341,6 +357,18 @@ impl VulkanApp{
                 && queue_family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
             {
                 queue_family_indices.graphics_family = Some(index);
+            }
+
+            let is_present_support = unsafe {
+                    surface_loader
+                    .get_physical_device_surface_support(
+                        physical_device,
+                        index as u32,
+                        *surface,
+                    )
+            };
+            if queue_family.queue_count > 0 && is_present_support {
+                queue_family_indices.present_family = Some(index);
             }
 
             if queue_family_indices.is_complete() {
