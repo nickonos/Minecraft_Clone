@@ -1,15 +1,15 @@
 use winit::event::{Event, ElementState, KeyboardInput, WindowEvent, VirtualKeyCode};
 use winit::event_loop::{EventLoop, ControlFlow};
-use ash::version::{InstanceV1_0, EntryV1_0};
+use ash::version::{InstanceV1_0, EntryV1_0, DeviceV1_0};
 use std::ffi::CString;
 use ash::vk;
 use std::ptr;
 use winit::window::Window;
-use std::os::raw::c_void;
+use std::os::raw::{c_void, c_char};
 
 use crate::utilities::constants::{APPLICATION_VERSION, ENGINE_VERSION, API_VERSION, VALIDATION};
 use crate::utilities;
-use crate::utilities::debug::{check_validation_layer_support, populate_debug_messenger_create_info};
+use crate::utilities::debug::{check_validation_layer_support, populate_debug_messenger_create_info, ValidationInfo};
 use crate::utilities::structures::QueueFamilyIndices;
 
 const WINDOW_TITLE: &'static str = "Minecraft";
@@ -21,7 +21,9 @@ pub struct VulkanApp{
     instance: ash::Instance,
     debug_utils_loader: ash::extensions::ext::DebugUtils,
     debug_messenger: vk::DebugUtilsMessengerEXT,
-    _physical_device: vk::PhysicalDevice
+    _physical_device: vk::PhysicalDevice,
+    device: ash::Device,
+    _graphics_queue: vk::Queue,
 }
 
 impl VulkanApp{
@@ -32,15 +34,15 @@ impl VulkanApp{
         let instance = VulkanApp::create_instance(&entry);
 
         //setup debug messenger
-        let (debug_utils_loader, debug_messenger) = utilities::debug::setup_debug_utils(
-            true, &entry, &instance);
+        let (debug_utils_loader, debug_messenger) = utilities::debug::setup_debug_utils(true, &entry, &instance);
 
         //create surface
-        let physical_device = VulkanApp::pick_physical_device(&instance);
 
         //pick physical device
+        let physical_device = VulkanApp::pick_physical_device(&instance);
 
         //create logical device
+        let (logical_device, graphics_queue) = VulkanApp::create_logical_device(&instance, physical_device, &VALIDATION);
 
         //create swap chain
 
@@ -48,12 +50,15 @@ impl VulkanApp{
 
         //create graphics pipeline
 
+
         VulkanApp{
             _entry: entry,
             instance,
             debug_utils_loader,
             debug_messenger,
-            _physical_device: physical_device
+            _physical_device: physical_device,
+            device: logical_device,
+            _graphics_queue: graphics_queue
         }
     }
 
@@ -135,6 +140,69 @@ impl VulkanApp{
         };
 
         instance
+    }
+
+    fn create_logical_device(
+        instance: &ash::Instance,
+        physical_device: vk::PhysicalDevice,
+        validation: &ValidationInfo
+    ) -> (ash::Device, vk::Queue) {
+        let indices = VulkanApp::find_queue_family(instance, physical_device);
+
+        let queue_priorities = [1.0_f32];
+        let queue_create_info = vk::DeviceQueueCreateInfo {
+            s_type: vk::StructureType::DEVICE_QUEUE_CREATE_INFO,
+            p_next: ptr::null(),
+            flags: vk::DeviceQueueCreateFlags::empty(),
+            queue_family_index: indices.graphics_family.unwrap(),
+            p_queue_priorities: queue_priorities.as_ptr(),
+            queue_count: queue_priorities.len() as u32,
+        };
+
+        let physical_device_features = vk::PhysicalDeviceFeatures {
+            ..Default::default()
+        };
+
+        let required_validation_layer_raw_names: Vec<CString> = validation
+            .required_validation_layers
+            .iter()
+            .map(|layer_name| CString::new(*layer_name).unwrap())
+            .collect();
+        let enable_layer_names: Vec<*const c_char> = required_validation_layer_raw_names
+            .iter()
+            .map(|layer_name| layer_name.as_ptr())
+            .collect();
+
+        let device_create_info = vk::DeviceCreateInfo {
+            s_type: vk::StructureType::DEVICE_CREATE_INFO,
+            p_next: ptr::null(),
+            flags: vk::DeviceCreateFlags::empty(),
+            queue_create_info_count: 1,
+            p_queue_create_infos: &queue_create_info,
+            enabled_layer_count: if validation.is_enable {
+                enable_layer_names.len()
+            } else {
+                0
+            } as u32,
+            pp_enabled_layer_names: if validation.is_enable {
+                enable_layer_names.as_ptr()
+            } else {
+                ptr::null()
+            },
+            enabled_extension_count: 0,
+            pp_enabled_extension_names: ptr::null(),
+            p_enabled_features: &physical_device_features,
+        };
+
+        let device: ash::Device = unsafe {
+            instance
+                .create_device(physical_device, &device_create_info, None)
+                .expect("Failed to create logical Device!")
+        };
+
+        let graphics_queue = unsafe { device.get_device_queue(indices.graphics_family.unwrap(), 0) };
+
+        (device, graphics_queue)
     }
 
     fn create_surface(){
@@ -241,7 +309,6 @@ impl VulkanApp{
             );
         }
 
-        // there are plenty of features
         println!(
             "\tGeometry Shader support: {}",
             if device_features.geometry_shader == 1 {
