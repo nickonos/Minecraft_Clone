@@ -3,6 +3,9 @@ extern crate ash;
 
 mod vulkan_app;
 mod utilities;
+mod vulkan_presentation;
+mod vulkan_graphics_pipeline;
+mod vulkan_setup;
 
 use winit::event_loop::EventLoop;
 

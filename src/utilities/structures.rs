@@ -8,14 +8,11 @@ pub struct DeviceExtension {
     //    pub raw_names: [*const i8; 1],
 }
 
-pub struct SurfaceStuff {
+pub struct SurfaceStruct {
     pub surface_loader: ash::extensions::khr::Surface,
     pub surface: vk::SurfaceKHR,
-
-    pub screen_width: u32,
-    pub screen_height: u32,
 }
-pub struct SwapChainStuff {
+pub struct SwapChainStruct {
     pub swapchain_loader: ash::extensions::khr::Swapchain,
     pub swapchain: vk::SwapchainKHR,
     pub swapchain_images: Vec<vk::Image>,
