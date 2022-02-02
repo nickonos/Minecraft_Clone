@@ -13,6 +13,7 @@ use crate::utilities::debug::{check_validation_layer_support, populate_debug_mes
 use crate::utilities::structures::{QueueFamilyIndices, SwapChainStruct, SwapChainSupportDetail, SurfaceStruct};
 use cgmath::num_traits::clamp;
 use crate::vulkan_setup::VulkanSetup;
+use crate::settings_loader::key_mappings::KeyMappings;
 
 const WINDOW_TITLE: &'static str = "Minecraft";
 const WINDOW_HEIGHT: u32 = 600;
@@ -85,8 +86,8 @@ impl VulkanApp{
         }
     }
 
-    pub fn run(self, event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window){
-        self.main_loop(event_loop, window);
+    pub fn run(self, event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window, keymappings : KeyMappings){
+        self.main_loop(event_loop, window, keymappings);
     }
 
 
@@ -255,8 +256,11 @@ impl VulkanApp{
     }
 
 
-    fn main_loop(mut self, event_loop: EventLoop<()>, window: Window){
+    fn main_loop(mut self, event_loop: EventLoop<()>, window: Window, keymappings : KeyMappings){
         event_loop.run(move |event, _, control_flow| {
+
+            //let escape : VirtualKeyCode = utilities::tools::keycode_from_i8(keymappings.menu)
+                //expect("No escape Key mapping found");
 
             match event {
                 | Event::WindowEvent { event, .. } => {
@@ -268,7 +272,7 @@ impl VulkanApp{
                             match input {
                                 | KeyboardInput { virtual_keycode, state, .. } => {
                                     match (virtual_keycode, state) {
-                                        | (Some(VirtualKeyCode::Escape), ElementState::Pressed) => {
+                                        | (Some(escape), ElementState::Pressed) => {
                                             *control_flow = ControlFlow::Exit
                                         },
                                         | _ => {},
