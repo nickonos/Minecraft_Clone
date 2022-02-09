@@ -1,16 +1,12 @@
 use bincode;
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use serde::{Serialize, Deserialize};
 
 use winit::event::VirtualKeyCode;
-use std::{fs, fmt};
-use std::path::{Path, PathBuf};
+use std::{fs};
+use std::path::{Path};
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::env;
-use serde::ser::SerializeStruct;
-use serde::de::{Visitor, SeqAccess, MapAccess, self};
-use bincode::Options;
-use cgmath::num_traits::real::Real;
 
 #[derive(Serialize, Deserialize)]
 pub struct KeyMappings{
@@ -40,7 +36,8 @@ impl KeyMappings{
 
         let dir = home + "/rustcraft";
         if !Path::new(&dir).exists(){
-            fs::create_dir(&dir);
+            fs::create_dir(&dir)
+                .expect("Unable to create directory");
         }
         let path = dir + "/settings.dat";
 
@@ -53,10 +50,6 @@ impl KeyMappings{
 
 
         let content = bincode::serialize(&self).unwrap();
-
-        for byte in &content{
-            print!("{}", byte)
-        }
 
         file.write_all(&content[..])
             .expect("Could not write to file")

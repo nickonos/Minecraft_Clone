@@ -4,8 +4,8 @@ use ash::vk;
 use std::ffi::CStr;
 use std::os::raw::c_void;
 use std::ptr;
-use crate::utilities::tools;
-use crate::utilities::constants::VALIDATION;
+use crate::vulkan_engine::utilities::tools;
+use crate::vulkan_engine::utilities::constants::VALIDATION;
 
 unsafe extern "system" fn vulkan_debug_utils_callback(
     message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
@@ -38,8 +38,6 @@ pub struct ValidationInfo {
 }
 
 pub fn check_validation_layer_support(entry: &ash::Entry) -> bool {
-    // if support validation layer, then return true
-
     let layer_properties = entry
         .enumerate_instance_layer_properties()
         .expect("Failed to enumerate Instance Layers Properties!");

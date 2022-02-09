@@ -1,8 +1,8 @@
-use crate::utilities::debug::ValidationInfo;
-use crate::utilities::structures::DeviceExtension;
 use ash::vk_make_version;
 
 use std::os::raw::c_char;
+use crate::vulkan_engine::utilities::debug::ValidationInfo;
+use crate::vulkan_engine::utilities::structures::DeviceExtension;
 
 pub const APPLICATION_VERSION: u32 = vk_make_version!(1, 0, 0);
 pub const ENGINE_VERSION: u32 = vk_make_version!(1, 0, 0);
@@ -23,7 +23,6 @@ pub const IS_PAINT_FPS_COUNTER: bool = false;
 impl DeviceExtension {
     pub fn get_extensions_raw_names(&self) -> [*const c_char; 1] {
         [
-            // currently just enable the Swapchain extension.
             ash::extensions::khr::Swapchain::name().as_ptr(),
         ]
     }

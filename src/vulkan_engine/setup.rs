@@ -1,14 +1,14 @@
 use ash::vk;
 use ash::version::{DeviceV1_0, InstanceV1_0, EntryV1_0};
-use crate::utilities::constants::{VALIDATION, APPLICATION_VERSION, ENGINE_VERSION, API_VERSION};
-use crate::utilities;
-use crate::utilities::structures::QueueFamilyIndices;
+use crate::vulkan_engine::utilities::constants::{VALIDATION, APPLICATION_VERSION, ENGINE_VERSION, API_VERSION};
+use crate::vulkan_engine::utilities;
+use crate::vulkan_engine::utilities::structures::QueueFamilyIndices;
 use std::ffi::CString;
-use crate::utilities::debug::{check_validation_layer_support, populate_debug_messenger_create_info, ValidationInfo};
+use crate::vulkan_engine::utilities::debug::{check_validation_layer_support, populate_debug_messenger_create_info, ValidationInfo};
 use std::ptr;
 use std::os::raw::{c_void, c_char};
 
-pub struct VulkanSetup{
+pub struct Setup {
     pub entry: ash::Entry,
     pub instance: ash::Instance,
     pub surface_loader: ash::extensions::khr::Surface,
@@ -24,22 +24,22 @@ pub struct VulkanSetup{
     pub queue_family_indices: QueueFamilyIndices
 }
 
-impl VulkanSetup{
-    pub fn new(window: &winit::window::Window) -> VulkanSetup{
+impl Setup {
+    pub fn new(window: &winit::window::Window) -> Setup {
         let entry = ash::Entry::new().unwrap();
-        let instance = VulkanSetup::create_instance(&entry);
+        let instance = Setup::create_instance(&entry);
 
         //setup debug messenger
         let (debug_utils_loader, debug_messenger) = utilities::debug::setup_debug_utils(VALIDATION.is_enable, &entry, &instance);
 
         //create surface
-        let surface_struct = VulkanSetup::create_surface(&entry, &instance, &window);
+        let surface_struct = Setup::create_surface(&entry, &instance, &window);
 
         //pick physical device
-        let physical_device = VulkanSetup::pick_physical_device(&instance, &surface_struct);
+        let physical_device = Setup::pick_physical_device(&instance, &surface_struct);
 
         //create logical device
-        let (logical_device, queue_family_indices) = VulkanSetup::create_logical_device(&instance, physical_device, &VALIDATION, &surface_struct);
+        let (logical_device, queue_family_indices) = Setup::create_logical_device(&instance, physical_device, &VALIDATION, &surface_struct);
 
         let graphics_queue =
             unsafe { logical_device.get_device_queue(queue_family_indices.graphics_family.unwrap(), 0) };
@@ -47,7 +47,7 @@ impl VulkanSetup{
         let present_queue =
             unsafe { logical_device.get_device_queue(queue_family_indices.present_family.unwrap(), 0) };
 
-        VulkanSetup{
+        Setup {
             entry,
             instance,
             surface_loader: surface_struct.surface_loader,
@@ -133,7 +133,7 @@ impl VulkanSetup{
         validation: &ValidationInfo,
         surface_struct: &utilities::structures::SurfaceStruct,
     ) -> (ash::Device, QueueFamilyIndices) {
-        let indices = VulkanSetup::find_queue_family(instance, physical_device, surface_struct);
+        let indices = Setup::find_queue_family(instance, physical_device, surface_struct);
 
         use std::collections::HashSet;
         let mut unique_queue_families = HashSet::new();
@@ -202,7 +202,7 @@ impl VulkanSetup{
         entry: &ash::Entry,
         instance: &ash::Instance,
         window: &winit::window::Window
-    ) -> (utilities::structures::SurfaceStruct) {
+    ) -> utilities::structures::SurfaceStruct {
         let surface = unsafe {
             utilities::platforms::create_surface(entry, instance, window)
                 .expect("Failed to create surface")
@@ -231,7 +231,7 @@ impl VulkanSetup{
         let mut result = None;
 
         for &physical_device in physical_devices.iter() {
-            if VulkanSetup::is_physical_device_suitable(instance, physical_device, surface_struct) {
+            if Setup::is_physical_device_suitable(instance, physical_device, surface_struct) {
                 if result.is_none() {
                     result = Some(physical_device)
                 }
@@ -326,7 +326,7 @@ impl VulkanSetup{
             }
         );
 
-        let indices = VulkanSetup::find_queue_family(instance, physical_device, surface_struct);
+        let indices = Setup::find_queue_family(instance, physical_device, surface_struct);
 
         return indices.is_complete();
     }
@@ -373,7 +373,7 @@ impl VulkanSetup{
 }
 
 
-impl Drop for VulkanSetup{
+impl Drop for Setup {
     fn drop(&mut self){
         unsafe{
             self.device.destroy_device(None);

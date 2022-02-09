@@ -5,7 +5,6 @@ use memoffset::offset_of;
 
 pub struct DeviceExtension {
     pub names: [&'static str; 1],
-    //    pub raw_names: [*const i8; 1],
 }
 
 pub struct SurfaceStruct {
