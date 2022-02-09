@@ -1,13 +1,16 @@
 use bincode;
-use serde::{Serialize, Deserialize};
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
 
 use winit::event::VirtualKeyCode;
-use std::fs;
+use std::{fs, fmt};
 use std::path::{Path, PathBuf};
-use std::fs::File;
-use winapi::shared::basetsd::INT8;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::env;
+use serde::ser::SerializeStruct;
+use serde::de::{Visitor, SeqAccess, MapAccess, self};
+use bincode::Options;
+use cgmath::num_traits::real::Real;
 
 #[derive(Serialize, Deserialize)]
 pub struct KeyMappings{
@@ -28,7 +31,7 @@ impl KeyMappings{
             menu: VirtualKeyCode::Escape,
         }
     }
-
+    //TODO: implement for other os' than windows
     pub fn write_to_file(&self){
         let mut file : File;
 
@@ -45,13 +48,17 @@ impl KeyMappings{
             file = File::create(path)
                 .expect("Unable to create key mapping file");
         }else {
-            file = File::open(path)
-                .expect("Unable to open key mapping file")
+            file = OpenOptions::new().write(true).open(path).unwrap();
         }
 
 
         let content = bincode::serialize(&self).unwrap();
-        file.write_all(content.as_slice())
+
+        for byte in &content{
+            print!("{}", byte)
+        }
+
+        file.write_all(&content[..])
             .expect("Could not write to file")
     }
 
@@ -68,6 +75,6 @@ impl KeyMappings{
         let content = fs::read(path)
             .expect("unable to read keymappings");
 
-        Some(bincode::deserialize(&content).unwrap())
+        Some(bincode::deserialize(&content[..]).unwrap())
     }
 }

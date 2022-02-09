@@ -3,6 +3,9 @@ extern crate ash;
 extern crate winit;
 extern crate image;
 extern crate winapi;
+extern crate serde;
+extern crate bincode;
+extern crate cgmath;
 
 
 mod vulkan_app;
@@ -19,8 +22,6 @@ use winapi::_core::convert::TryFrom;
 
 
 fn main(){
-    println!("{}", VirtualKeyCode::RShift as u8);
-
     let keymappings = match KeyMappings::read_from_file(){
         None => {
             let default = KeyMappings::default();
