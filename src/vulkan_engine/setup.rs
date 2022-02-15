@@ -212,7 +212,9 @@ impl Setup {
 
         utilities::structures::SurfaceStruct{
             surface,
-            surface_loader
+            surface_loader,
+            screen_width: window.inner_size().width,
+            screen_height: window.inner_size().height
         }
     }
 
@@ -369,22 +371,5 @@ impl Setup {
         }
 
         queue_family_indices
-    }
-}
-
-
-impl Drop for Setup {
-    fn drop(&mut self){
-        unsafe{
-            self.device.destroy_device(None);
-
-            self.surface_loader.destroy_surface(self.surface, None);
-
-            if VALIDATION.is_enable{
-                self.debug_utils_loader
-                    .destroy_debug_utils_messenger(self.debug_messenger, None)
-            }
-            self.instance.destroy_instance(None)
-        }
     }
 }

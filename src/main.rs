@@ -27,7 +27,6 @@ fn main(){
 
 
     let event_loop = EventLoop::new();
-    let window = VulkanEngine::init_window(&event_loop);
 
-    VulkanEngine::new(&window).run(event_loop, window, keymappings);
+    VulkanEngine::new(&event_loop).run(event_loop, keymappings);
 }

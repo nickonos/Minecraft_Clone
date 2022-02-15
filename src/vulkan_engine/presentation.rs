@@ -26,13 +26,15 @@ impl Presentation{
         instance: &Instance,
         device: &Device,
         physical_device: PhysicalDevice,
-        queue_family_indices: &QueueFamilyIndices
+        queue_family_indices: &QueueFamilyIndices,
+        window: &winit::window::Window
     ) -> Presentation{
 
         let swapchain_struct = Presentation::create_swapchain(
             instance,
             device,
             physical_device,
+            window,
             &surface_struct,
             queue_family_indices
         );
@@ -54,7 +56,7 @@ impl Presentation{
         }
     }
 
-    fn create_image_views(
+    pub fn create_image_views(
         device: &ash::Device,
         surface_format: vk::Format,
         images: &Vec<vk::Image>,
@@ -96,10 +98,11 @@ impl Presentation{
         swapchain_imageviews
     }
 
-    fn create_swapchain(
+    pub fn create_swapchain(
         instance: &ash::Instance,
         device: &ash::Device,
         physical_device: vk::PhysicalDevice,
+        window: &winit::window::Window,
         surface_struct: &utilities::structures::SurfaceStruct,
         queue_family: &QueueFamilyIndices
     ) -> utilities::structures::SwapChainStruct{
@@ -110,7 +113,7 @@ impl Presentation{
         let surface_format = Presentation::choose_swapchain_format(&swapchain_support.formats);
         let present_mode =
             Presentation::choose_swapchain_present_mode(&swapchain_support.present_modes);
-        let extent = Presentation::choose_swapchain_extent(&swapchain_support.capabilities);
+        let extent = Presentation::choose_swapchain_extent(&swapchain_support.capabilities, window);
 
         let image_count = swapchain_support.capabilities.min_image_count + 1;
         let image_count = if swapchain_support.capabilities.max_image_count > 0 {
@@ -229,31 +232,26 @@ impl Presentation{
         vk::PresentModeKHR::FIFO
     }
 
-    fn choose_swapchain_extent(capabilities: &vk::SurfaceCapabilitiesKHR) -> vk::Extent2D {
+    fn choose_swapchain_extent(
+        capabilities: &vk::SurfaceCapabilitiesKHR,
+        window : &winit::window::Window
+    ) -> vk::Extent2D {
         if capabilities.current_extent.width != u32::max_value() {
             capabilities.current_extent
         } else {
+
+            let window_size = window.inner_size();
             vk::Extent2D {
                 width: clamp(
-                    WINDOW_WIDTH,
+                    window_size.width as u32,
                     capabilities.min_image_extent.width,
                     capabilities.max_image_extent.width,
                 ),
                 height: clamp(
-                    WINDOW_HEIGHT,
+                    window_size.height as u32,
                     capabilities.min_image_extent.height,
                     capabilities.max_image_extent.height,
                 ),
-            }
-        }
-    }
-}
-
-impl Drop for Presentation{
-    fn drop(&mut self){
-        unsafe{
-            for &imageview in self.swapchain_imageviews.iter(){
-                self._device.destroy_image_view(imageview, None)
             }
         }
     }
