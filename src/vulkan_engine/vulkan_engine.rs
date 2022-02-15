@@ -39,6 +39,7 @@ pub struct VulkanEngine {
     _swapchain_images: Vec<vk::Image>,
     _swapchain_format: vk::Format,
     _swapchain_extent: vk::Extent2D,
+    swapchain_imageviews: Vec<vk::ImageView>
 }
 
 impl VulkanEngine {
@@ -59,8 +60,7 @@ impl VulkanEngine {
             &vulkan_setup.queue_family_indices
         );
 
-        //create image views
-
+        let graphics_pipeline =
         //create graphics pipeline
 
 
@@ -78,12 +78,13 @@ impl VulkanEngine {
             _graphics_queue: vulkan_setup.graphics_queue,
             _present_queue: vulkan_setup.present_queue,
 
-            swapchain_loader: presentation.swapchain_loader,
+            swapchain_loader: presentation.swapchain_loader.clone(),
             swapchain: presentation.swapchain,
-            _swapchain_images: presentation.swapchain_images,
+            _swapchain_images: presentation.swapchain_images.clone(),
             _swapchain_format: presentation.swapchain_format,
-            _swapchain_extent: presentation.swapchain_extent
-        }
+            _swapchain_extent: presentation.swapchain_extent,
+            swapchain_imageviews: presentation.swapchain_imageviews.clone()
+        };
     }
 
     pub fn run(self, event_loop: winit::event_loop::EventLoop<()>, window: winit::window::Window, keymappings : KeyMappings){
@@ -146,6 +147,10 @@ impl VulkanEngine {
 impl Drop for VulkanEngine {
     fn drop(&mut self){
         unsafe{
+            for &imageview in self.swapchain_imageviews.iter(){
+                self.device.destroy_image_view(imageview, None)
+            }
+
             self.device.destroy_device(None);
 
             self.surface_loader.destroy_surface(self.surface, None);

@@ -6,7 +6,7 @@ use crate::vulkan_engine::utilities::constants::{WINDOW_HEIGHT, WINDOW_WIDTH};
 use std::ptr;
 use ash::{Instance, Device};
 use ash::vk::PhysicalDevice;
-
+use ash::version::DeviceV1_0;
 
 
 pub struct Presentation {
@@ -15,6 +15,8 @@ pub struct Presentation {
     pub swapchain_images: Vec<vk::Image>,
     pub swapchain_format: vk::Format,
     pub swapchain_extent: vk::Extent2D,
+    pub swapchain_imageviews: Vec<vk::ImageView>,
+    _device: ash::Device
 }
 
 impl Presentation{
@@ -26,6 +28,7 @@ impl Presentation{
         physical_device: PhysicalDevice,
         queue_family_indices: &QueueFamilyIndices
     ) -> Presentation{
+
         let swapchain_struct = Presentation::create_swapchain(
             instance,
             device,
@@ -34,15 +37,64 @@ impl Presentation{
             queue_family_indices
         );
 
+        let swapchain_imageviews = Presentation::create_image_views(
+            device,
+            swapchain_struct.swapchain_format,
+            &swapchain_struct.swapchain_images,
+        );
+
         Presentation{
             swapchain_loader: swapchain_struct.swapchain_loader,
             swapchain: swapchain_struct.swapchain,
             swapchain_images: swapchain_struct.swapchain_images,
             swapchain_format: swapchain_struct.swapchain_format,
-            swapchain_extent: swapchain_struct.swapchain_extent
+            swapchain_extent: swapchain_struct.swapchain_extent,
+            swapchain_imageviews,
+            _device: device.clone(),
         }
     }
 
+    fn create_image_views(
+        device: &ash::Device,
+        surface_format: vk::Format,
+        images: &Vec<vk::Image>,
+    ) -> Vec<vk::ImageView> {
+        let mut swapchain_imageviews = vec![];
+
+        for &image in images.iter(){
+            let imageview_create_info = vk::ImageViewCreateInfo{
+                s_type: vk::StructureType::IMAGE_VIEW_CREATE_INFO,
+                p_next: ptr::null(),
+                flags: vk::ImageViewCreateFlags::empty(),
+                view_type: vk::ImageViewType::TYPE_2D,
+                format: surface_format,
+                components: vk::ComponentMapping{
+                    r: vk::ComponentSwizzle::IDENTITY,
+                    g: vk::ComponentSwizzle::IDENTITY,
+                    b: vk::ComponentSwizzle::IDENTITY,
+                    a: vk::ComponentSwizzle::IDENTITY,
+                },
+                subresource_range: vk::ImageSubresourceRange{
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1
+                },
+                image,
+            };
+
+            let imageview = unsafe{
+                device
+                    .create_image_view(&imageview_create_info, None)
+                    .expect("Failed to create Image View")
+            };
+
+            swapchain_imageviews.push(imageview)
+        }
+
+        swapchain_imageviews
+    }
 
     fn create_swapchain(
         instance: &ash::Instance,
@@ -192,6 +244,16 @@ impl Presentation{
                     capabilities.min_image_extent.height,
                     capabilities.max_image_extent.height,
                 ),
+            }
+        }
+    }
+}
+
+impl Drop for Presentation{
+    fn drop(&mut self){
+        unsafe{
+            for &imageview in self.swapchain_imageviews.iter(){
+                self._device.destroy_image_view(imageview, None)
             }
         }
     }
